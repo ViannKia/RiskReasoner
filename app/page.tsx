@@ -27,15 +27,6 @@ export default function Home() {
   const [scoreLabel, setScoreLabel] = useState("");
   const [coinList, setCoinList] = useState<any[]>([]);
 
-  useEffect(() => {
-    const fetchCoins = async () => {
-      const res = await fetch("/api/coins");
-      const data = await res.json();
-      setCoinList(data);
-    };
-    fetchCoins();
-  }, []);
-
   // Ambil harga live dari CoinGecko
   useEffect(() => {
     const fetchPrice = async () => {
@@ -294,11 +285,14 @@ export default function Home() {
                           onChange={(e) => setAsset(e.target.value)}
                           className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white"
                         >
-                          {coinList.map((coin) => (
-                            <option key={coin.symbol} value={coin.symbol}>
-                              {coin.symbol} - {coin.name}
-                            </option>
-                          ))}
+                          <option>BTC</option>
+                          <option>ETH</option>
+                          <option>SOL</option>
+                          <option>XRP</option>
+                          <option>DOGE</option>
+                          <option>HYPE</option>
+                          <option>BNB</option>
+                          <option>LEO</option>
                         </select>
                       </div>
                       <div>
