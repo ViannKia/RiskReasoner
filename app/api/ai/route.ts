@@ -1,53 +1,88 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
-    const { answers, asset, entry, target, stopLoss } = await request.json();
+    const { question, answers, asset, entry, target, stopLoss } =
+      await request.json();
 
-    const entryNum = parseFloat(entry);
-    const targetNum = parseFloat(target);
-    const stopNum = parseFloat(stopLoss);
-    const riskPercent = ((entryNum - stopNum) / entryNum * 100).toFixed(1);
-    const rewardPercent = ((targetNum - entryNum) / entryNum * 100).toFixed(1);
-    const ratio = ((targetNum - entryNum) / (entryNum - stopNum)).toFixed(1);
+    // Prompt AI yang memaksa AI bersikap skeptis
+    const systemPrompt = `Kamu adalah RiskReasoner, asisten AI yang bertugas menguji rencana trading seseorang. 
+Kamu BUKAN pemberi saran trading. Tugasmu adalah menjadi "penguji kritis" (devil's advocate).
 
-    // Kumpulan pertanyaan (3 pertanyaan berbeda)
-    const questions = [
-      `Dengan entry di $${entryNum} dan stop loss di $${stopNum} (risiko -${riskPercent}%), apa jaminan harga tidak akan menyentuh stop loss dulu sebelum naik?`,
-      `Baik. Lalu bagaimana strategi kamu jika harga naik 5% dulu, lalu tiba-tiba turun balik ke entry?`,
-      `Pertanyaan terakhir: Berapa persen dari total portofolio yang akan kamu alokasikan untuk trade ${asset} ini, dan apa rencana jika trade ini rugi?`
-    ];
+Karakteristikmu:
+- Skeptis terhadap rencana trading
+- Tidak pernah memberi saran "beli" atau "jual"
+- Setiap jawaban harus dalam bentuk PERTANYAAN lanjutan atau ANALISIS RISIKO
 
-    // Jika sudah 3 jawaban, berikan verdict
-    if (answers.length >= 3) {
-      let score = 75;
-      let verdictText = "";
-      
-      if (parseFloat(ratio) >= 2) {
-        score = 85;
-        verdictText = `Trade ${asset} dengan risk/reward 1:${ratio} sangat baik. Manajemen risiko solid, target realistis.`;
-      } else if (parseFloat(ratio) >= 1.5) {
-        score = 70;
-        verdictText = `Rencana cukup baik, tapi masih ada ruang perbaikan. Pertimbangkan untuk memperkecil stop loss.`;
-      } else if (parseFloat(ratio) >= 1) {
-        score = 55;
-        verdictText = `Risk/reward 1:${ratio} kurang ideal (minimal 1:2). Kamu mungkin terpengaruh fomo. Evaluasi ulang.`;
-      } else {
-        score = 35;
-        verdictText = `Rencana ini terlalu berisiko. Risk/reward tidak menguntungkan. Saran: jangan eksekusi dulu.`;
-      }
-      
-      return NextResponse.json({ message: `VERDIKT: ${score}\n${verdictText}` });
+Aturan:
+1. Jangan pernah bilang "ide bagus" tanpa pertanyaan kritis
+2. Jangan pernah merekomendasikan entry price atau target price
+3. Fokus pada kelemahan logika dan manajemen risiko
+4. Gunakan bahasa Indonesia yang tegas tapi profesional`;
+
+    const userPrompt = `Asset: ${asset}
+Entry Price: ${entry}
+Target Price: ${target}
+Stop Loss: ${stopLoss}
+
+Riwayat jawaban user:
+${answers.map((a: any, i: number) => `Pertanyaan ${i + 1}: ${a.question}\nJawaban user: ${a.answer}`).join("\n")}
+
+Sekarang, berikan pertanyaan ke-${answers.length + 1} dari maksimal 3 pertanyaan.
+Pertanyaan harus:
+- Spesifik berdasarkan data di atas
+- Memaksa user memikirkan risiko
+- Tidak bisa dijawab dengan "ya" atau "tidak" saja
+
+Atau jika sudah 3 pertanyaan, berikan VERDIKT dengan format:
+VERDIKT: [Skor Rasional dari 0-100]
+[Analisis singkat 2-3 kalimat tentang kualitas rencana trading user]`;
+
+    const response = await fetch(
+      process.env.OPENROUTER_API_URL ||
+        "https://openrouter.ai/api/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "HTTP-Referer": "http://localhost:3000",
+          "X-Title": "TradePunch",
+        },
+        body: JSON.stringify({
+          model: "openrouter/free",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          temperature: 0.8,
+          max_tokens: 500,
+        }),
+      },
+    );
+
+    const data = await response.json();
+    console.log("OpenRouter Response:", JSON.stringify(data, null, 2));
+
+    // Cek apakah ada error dari OpenRouter
+    if (data.error) {
+      console.error("OpenRouter Error:", data.error);
+      return NextResponse.json(
+        { message: `API Error: ${data.error.message || "Unknown"}` },
+        { status: 500 },
+      );
     }
 
-    // Berikan pertanyaan berdasarkan jumlah jawaban yang sudah ada
-    const questionIndex = answers.length; // 0, 1, atau 2
-    const question = questions[questionIndex];
-    
-    return NextResponse.json({ message: question });
-    
+    const aiMessage =
+      data.choices?.[0]?.message?.content ||
+      "Maaf, AI sedang sibuk. Coba lagi.";
+
+    return NextResponse.json({ message: aiMessage });
   } catch (error) {
-    console.error('API Error:', error);
-    return NextResponse.json({ message: 'Terjadi kesalahan. Coba lagi.' }, { status: 500 });
+    console.error("AI API Error:", error);
+    return NextResponse.json(
+      { message: "Terjadi kesalahan. Coba lagi." },
+      { status: 500 },
+    );
   }
 }
