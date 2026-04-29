@@ -163,10 +163,10 @@ export default function Home() {
             </div>
             <div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-                RiskReasoner
+                TradePunch
               </h1>
               <p className="text-xs text-gray-500">
-                Stress-test your trading plan
+                Stress-test your Trading Plan
               </p>
             </div>
           </div>

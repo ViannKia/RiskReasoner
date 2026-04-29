@@ -10,10 +10,10 @@ const poppins = Poppins({
 });
 
 export const metadata = {
-  title: 'RiskReasoner',
+  title: 'TradePunch',
   description: 'Stress-test your trading plan with AI',
   icons: {
-    icon: '/logo.svg',
+    icon: '/icon.svg',
   },
 };
 
